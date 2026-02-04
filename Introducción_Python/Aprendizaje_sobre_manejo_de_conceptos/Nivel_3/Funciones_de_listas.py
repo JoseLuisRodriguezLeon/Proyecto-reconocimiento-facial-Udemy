@@ -1,5 +1,6 @@
 # // funciones de listas en Python
-
+# Contenido trabajado y adaptado por: JOSE LUIS RODRIGUEZ LEON
+# Organizacion del codigo propuesta por Chat Gpt-4
 
 # Inicialización de la lista
 array = [0, "Juan", 4, True, "Maria", (1, 2, 3), 5.6]
