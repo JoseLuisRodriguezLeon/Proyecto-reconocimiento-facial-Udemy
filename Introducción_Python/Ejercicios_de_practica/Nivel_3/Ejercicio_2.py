@@ -26,7 +26,7 @@ diferencia_AC = A - C
 print("c) Diferencia de A y C:", diferencia_AC) #todos los elementos de A que no estan en C
 
 # d) Diferencia simétrica entre B y C (elementos en B o C pero no en ambos)
-diferencia_simetrica_BC = (B-C) | (C-B) # tambien se puede usar el operador ^ -> B ^ C
+diferencia_simetrica_BC = (B-C) | (C-B) # tambien se puede usar el operador " ^ " -> B ^ C
 print("d) Diferencia simétrica entre B y C:", diferencia_simetrica_BC)
 
 # e) Comprobar si A es subconjunto de B
