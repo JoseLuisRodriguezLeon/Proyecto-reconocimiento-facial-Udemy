@@ -1,0 +1,173 @@
+# DOCUMENTACIÓN - PROYECTO RECONOCIMIENTO FACIAL
+
+================================================================================
+
+## DEPENDENCIAS DEL PROYECTO
+
+================================================================================
+
+### 1. OpenCV Contrib (cv2)
+
+INSTALACIÓN:
+pip install opencv-contrib-python
+
+DOCUMENTACIÓN OFICIAL:
+https://pypi.org/project/opencv-contrib-python/
+
+--------------------------------------------------------------------------------
+
+### 2. Screeninfo
+
+INSTALACIÓN:
+pip install screeninfo
+
+DOCUMENTACIÓN OFICIAL:
+https://pypi.org/project/screeninfo/
+
+================================================================================
+
+## FUNCIONES OPENCV
+
+================================================================================
+
+### cv2.imread(path, flag)
+
+DESCRIPCIÓN:
+Carga una imagen desde un archivo y la convierte en una matriz NumPy.
+
+PARÁMETROS:
+- path (str): Ruta relativa o absoluta al archivo de imagen
+- flag (int, opcional): Modo de lectura de la imagen
+  * 1 o cv2.IMREAD_COLOR: Imagen a color en formato BGR (por defecto)
+  * 0 o cv2.IMREAD_GRAYSCALE: Imagen en escala de grises
+  * -1 o cv2.IMREAD_UNCHANGED: Imagen sin cambios, incluye canal alfa
+
+RETORNA:
+- numpy.ndarray: Matriz con los valores de píxeles de la imagen
+- None: Si el archivo no existe o el formato no es compatible
+
+FORMATO DE SALIDA:
+Por defecto, carga la imagen en formato BGR (Blue-Green-Red), no RGB.
+
+EJEMPLO:
+```python
+import cv2
+
+# Cargar imagen a color (BGR)
+imagen = cv2.imread('foto.jpg')
+
+# Cargar imagen en escala de grises
+imagen_gris = cv2.imread('foto.jpg', cv2.IMREAD_GRAYSCALE)
+
+# Verificar si la imagen se cargó correctamente
+if imagen is None:
+    print("Error: No se pudo cargar la imagen")
+```
+
+--------------------------------------------------------------------------------
+
+### cv2.imshow(winname, mat)
+
+DESCRIPCIÓN:
+Muestra una imagen en una ventana de la interfaz gráfica de OpenCV.
+
+PARÁMETROS:
+- winname (str): Nombre único que identifica la ventana y sirve como título
+- mat (numpy.ndarray): Matriz que contiene la imagen a mostrar
+
+FORMATOS SOPORTADOS:
+- 8 bits: Valores de 0-255
+- 16 bits: Valores extendidos
+- Punto flotante: Valores de 0.0-1.0
+
+COMPORTAMIENTO CRÍTICO:
+- Requiere cv2.waitKey() después para renderizar correctamente
+- Si se usa el mismo winname, actualiza el contenido de la ventana existente
+- Asume que las imágenes de 3 canales están en formato BGR
+
+EJEMPLO:
+```python
+import cv2
+
+imagen = cv2.imread('logo.png')
+cv2.imshow('Resultados de Procesamiento', imagen)
+
+# Mantiene la ventana abierta hasta presionar una tecla
+cv2.waitKey(0)
+cv2.destroyAllWindows()
+```
+
+--------------------------------------------------------------------------------
+
+### cv2.waitKey(delay)
+
+DESCRIPCIÓN:
+Pausa la ejecución del programa para permitir el renderizado de ventanas
+y captura la entrada del teclado.
+
+PARÁMETROS:
+- delay (int): Tiempo de espera en milisegundos
+  * 0: Espera indefinidamente hasta que se presione una tecla
+  * > 0: Espera el tiempo indicado y continúa automáticamente
+
+RETORNA:
+- int: Código ASCII de la tecla presionada
+- -1: Si el tiempo se agota sin presionar ninguna tecla
+
+PROPÓSITO:
+Esencial para que cv2.imshow() funcione. Sin esta función, la ventana
+se cerraría instantáneamente o no respondería.
+
+EJEMPLOS:
+
+1. Pausa indefinida (para mostrar imágenes):
+```python
+cv2.imshow('Imagen', imagen)
+cv2.waitKey(0)  # Espera hasta que se presione cualquier tecla
+```
+
+2. Control de salida en bucles (para video):
+```python
+# Espera 1ms y sale si se presiona 'q'
+if cv2.waitKey(1) & 0xFF == ord('q'):
+    break
+```
+
+3. Control de FPS en reproducción de video:
+```python
+# Espera 30ms entre frames (aproximadamente 33 FPS)
+cv2.waitKey(30)
+```
+
+--------------------------------------------------------------------------------
+
+### cv2.destroyAllWindows()
+
+DESCRIPCIÓN:
+Cierra todas las ventanas creadas por OpenCV y libera los recursos del sistema.
+
+PARÁMETROS:
+Ninguno
+
+RETORNA:
+None
+
+COMPORTAMIENTO:
+- Cierra todas las ventanas abiertas simultáneamente
+- Libera memoria y recursos asociados
+- Para cerrar una ventana específica, usar cv2.destroyWindow(winname)
+
+UBICACIÓN:
+Se coloca al final del ciclo de vida de la aplicación, después de cv2.waitKey()
+
+EJEMPLO:
+```python
+import cv2
+
+# Visualización de imagen
+cv2.imshow('Ventana Final', imagen)
+cv2.waitKey(0)
+
+# Limpieza obligatoria
+cv2.destroyAllWindows()
+```
