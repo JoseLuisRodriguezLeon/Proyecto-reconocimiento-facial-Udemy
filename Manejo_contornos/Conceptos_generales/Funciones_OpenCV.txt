@@ -1,0 +1,398 @@
+================================================================================
+
+## FUNCIONES OPENCV - CARGA Y VISUALIZACIÓN
+
+================================================================================
+
+### cv2.imread(path, flag)
+
+DESCRIPCIÓN:
+Carga una imagen desde un archivo y la convierte en una matriz NumPy.
+
+PARÁMETROS:
+- path (str): Ruta relativa o absoluta al archivo de imagen
+- flag (int, opcional): Modo de lectura de la imagen
+  * 1 o cv2.IMREAD_COLOR: Imagen a color en formato BGR (por defecto)
+  * 0 o cv2.IMREAD_GRAYSCALE: Imagen en escala de grises
+  * -1 o cv2.IMREAD_UNCHANGED: Imagen sin cambios, incluye canal alfa
+
+RETORNA:
+- numpy.ndarray: Matriz con los valores de píxeles de la imagen
+- None: Si el archivo no existe o el formato no es compatible
+
+FORMATO DE SALIDA:
+Por defecto, carga la imagen en formato BGR (Blue-Green-Red), no RGB.
+
+EJEMPLO:
+```python
+import cv2
+
+# Cargar imagen a color (BGR)
+imagen = cv2.imread('foto.jpg')
+
+# Cargar imagen en escala de grises
+imagen_gris = cv2.imread('foto.jpg', cv2.IMREAD_GRAYSCALE)
+
+# Verificar si la imagen se cargó correctamente
+if imagen is None:
+    print("Error: No se pudo cargar la imagen")
+```
+
+--------------------------------------------------------------------------------
+
+### cv2.imshow(winname, mat)
+
+DESCRIPCIÓN:
+Muestra una imagen en una ventana de la interfaz gráfica de OpenCV.
+
+PARÁMETROS:
+- winname (str): Nombre único que identifica la ventana y sirve como título
+- mat (numpy.ndarray): Matriz que contiene la imagen a mostrar
+
+FORMATOS SOPORTADOS:
+- 8 bits: Valores de 0-255
+- 16 bits: Valores extendidos
+- Punto flotante: Valores de 0.0-1.0
+
+COMPORTAMIENTO CRÍTICO:
+- Requiere cv2.waitKey() después para renderizar correctamente
+- Si se usa el mismo winname, actualiza el contenido de la ventana existente
+- Asume que las imágenes de 3 canales están en formato BGR
+
+EJEMPLO:
+```python
+import cv2
+
+imagen = cv2.imread('logo.png')
+cv2.imshow('Resultados de Procesamiento', imagen)
+
+# Mantiene la ventana abierta hasta presionar una tecla
+cv2.waitKey(0)
+cv2.destroyAllWindows()
+```
+
+--------------------------------------------------------------------------------
+
+### cv2.waitKey(delay)
+
+DESCRIPCIÓN:
+Pausa la ejecución del programa para permitir el renderizado de ventanas
+y captura la entrada del teclado.
+
+PARÁMETROS:
+- delay (int): Tiempo de espera en milisegundos
+  * 0: Espera indefinidamente hasta que se presione una tecla
+  * > 0: Espera el tiempo indicado y continúa automáticamente
+
+RETORNA:
+- int: Código ASCII de la tecla presionada
+- -1: Si el tiempo se agota sin presionar ninguna tecla
+
+PROPÓSITO:
+Esencial para que cv2.imshow() funcione. Sin esta función, la ventana
+se cerraría instantáneamente o no respondería.
+
+EJEMPLOS:
+
+1. Pausa indefinida (para mostrar imágenes):
+```python
+cv2.imshow('Imagen', imagen)
+cv2.waitKey(0)  # Espera hasta que se presione cualquier tecla
+```
+
+2. Control de salida en bucles (para video):
+```python
+# Espera 1ms y sale si se presiona 'q'
+if cv2.waitKey(1) & 0xFF == ord('q'):
+    break
+```
+
+3. Control de FPS en reproducción de video:
+```python
+# Espera 30ms entre frames (aproximadamente 33 FPS)
+cv2.waitKey(30)
+```
+
+--------------------------------------------------------------------------------
+
+### cv2.destroyAllWindows()
+
+DESCRIPCIÓN:
+Cierra todas las ventanas creadas por OpenCV y libera los recursos del sistema.
+
+PARÁMETROS:
+Ninguno
+
+RETORNA:
+None
+
+COMPORTAMIENTO:
+- Cierra todas las ventanas abiertas simultáneamente
+- Libera memoria y recursos asociados
+- Para cerrar una ventana específica, usar cv2.destroyWindow(winname)
+
+UBICACIÓN:
+Se coloca al final del ciclo de vida de la aplicación, después de cv2.waitKey()
+
+EJEMPLO:
+```python
+import cv2
+
+# Visualización de imagen
+cv2.imshow('Ventana Final', imagen)
+cv2.waitKey(0)
+
+# Limpieza obligatoria
+cv2.destroyAllWindows()
+```
+
+================================================================================
+
+## FUNCIONES OPENCV - PROCESAMIENTO DE IMÁGENES
+
+================================================================================
+
+### cv2.cvtColor(src, code)
+
+DESCRIPCIÓN:
+Convierte una imagen de un espacio de color a otro.
+
+PARÁMETROS:
+- src (numpy.ndarray): Imagen de entrada
+- code (int): Código de conversión que especifica el cambio de espacio de color
+  * cv2.COLOR_BGR2GRAY: BGR a escala de grises
+  * cv2.COLOR_BGR2RGB: BGR a RGB
+  * cv2.COLOR_BGR2HSV: BGR a HSV (matiz, saturación, valor)
+  * cv2.COLOR_GRAY2BGR: Escala de grises a BGR
+
+RETORNA:
+- numpy.ndarray: Imagen convertida al nuevo espacio de color
+
+POR QUÉ ESCALA DE GRISES:
+Muchas operaciones de visión por computadora (detección de bordes, contornos,
+umbralización) funcionan mejor con un solo canal de intensidad en lugar de 3
+canales de color.
+
+EJEMPLO:
+```python
+import cv2
+
+# Cargar imagen a color
+imagen = cv2.imread('foto.jpg')
+
+# Convertir a escala de grises
+gris = cv2.cvtColor(imagen, cv2.COLOR_BGR2GRAY)
+
+# Convertir de BGR a RGB
+rgb = cv2.cvtColor(imagen, cv2.COLOR_BGR2RGB)
+```
+
+--------------------------------------------------------------------------------
+
+### cv2.threshold(src, thresh, maxval, type)
+
+DESCRIPCIÓN:
+Aplica un umbral fijo a una imagen en escala de grises, convirtiéndola en
+una imagen binaria (blanco y negro).
+
+PARÁMETROS:
+- src (numpy.ndarray): Imagen de entrada en escala de grises
+- thresh (float): Valor de umbral (0-255)
+  * Píxeles > thresh → maxval (blanco)
+  * Píxeles ≤ thresh → 0 (negro)
+- maxval (float): Valor máximo asignado a píxeles que superan el umbral (255)
+- type (int): Tipo de umbralización
+  * cv2.THRESH_BINARY: Binario simple (el más común)
+  * cv2.THRESH_BINARY_INV: Binario invertido
+  * cv2.THRESH_TRUNC: Truncado
+  * cv2.THRESH_TOZERO: A cero
+  * cv2.THRESH_TOZERO_INV: A cero invertido
+
+RETORNA:
+- retval (float): Valor de umbral utilizado (útil con umbrales automáticos)
+- dst (numpy.ndarray): Imagen umbralizada (binaria)
+
+EFECTO DE CAMBIAR thresh:
+- Valores bajos (20-50): Más píxeles blancos, detecta hasta sombras leves
+- Valores medios (100-150): Balance entre objetos y fondo
+- Valores altos (200-240): Solo píxeles muy brillantes se vuelven blancos
+
+EJEMPLO:
+```python
+import cv2
+
+# Convertir a escala de grises
+gris = cv2.cvtColor(imagen, cv2.COLOR_BGR2GRAY)
+
+# Umbralización simple
+ret, binaria = cv2.threshold(gris, 127, 255, cv2.THRESH_BINARY)
+
+# Umbralización con valor bajo (más blanco)
+ret, binaria2 = cv2.threshold(gris, 50, 255, cv2.THRESH_BINARY)
+
+# Umbralización con valor alto (menos blanco)
+ret, binaria3 = cv2.threshold(gris, 200, 255, cv2.THRESH_BINARY)
+```
+
+================================================================================
+
+## FUNCIONES OPENCV - DETECCIÓN DE CONTORNOS
+
+================================================================================
+
+### cv2.findContours(image, mode, method)
+
+DESCRIPCIÓN:
+Detecta contornos (bordes) de objetos en una imagen binaria. Busca áreas
+blancas sobre fondo negro.
+
+PARÁMETROS:
+- image (numpy.ndarray): Imagen binaria de entrada (umbralizada)
+- mode (int): Modo de recuperación de contornos
+  * cv2.RETR_EXTERNAL: Solo contornos externos (más rápido)
+  * cv2.RETR_LIST: Todos los contornos sin jerarquía
+  * cv2.RETR_TREE: Todos con jerarquía completa (anidados)
+  * cv2.RETR_CCOMP: Dos niveles de jerarquía
+  
+- method (int): Método de aproximación de contornos
+  * cv2.CHAIN_APPROX_NONE: Guarda todos los puntos del contorno
+  * cv2.CHAIN_APPROX_SIMPLE: Comprime y guarda solo puntos clave (recomendado)
+  * cv2.CHAIN_APPROX_TC89_L1: Algoritmo de compresión avanzado
+
+RETORNA:
+- contours (list): Lista de contornos encontrados. Cada contorno es un array
+  de puntos (x, y) que forman el borde del objeto
+- hierarchy (numpy.ndarray): Información sobre relaciones entre contornos
+  (contornos dentro de otros)
+
+CÓMO FUNCIONA:
+1. Escanea la imagen buscando transiciones de negro a blanco
+2. Traza el perímetro de cada región blanca
+3. Almacena los puntos que forman ese perímetro
+
+EJEMPLO:
+```python
+import cv2
+
+# Preparar imagen binaria
+gris = cv2.cvtColor(imagen, cv2.COLOR_BGR2GRAY)
+_, binaria = cv2.threshold(gris, 127, 255, cv2.THRESH_BINARY)
+
+# Encontrar todos los contornos
+contornos, jerarquia = cv2.findContours(binaria, cv2.RETR_LIST, 
+                                         cv2.CHAIN_APPROX_SIMPLE)
+
+# Ver cuántos contornos se encontraron
+print(f"Se encontraron {len(contornos)} contornos")
+```
+
+--------------------------------------------------------------------------------
+
+### cv2.drawContours(image, contours, contourIdx, color, thickness)
+
+DESCRIPCIÓN:
+Dibuja contornos sobre una imagen.
+
+PARÁMETROS:
+- image (numpy.ndarray): Imagen donde se dibujarán los contornos (se modifica)
+- contours (list): Lista de contornos obtenida de findContours()
+- contourIdx (int): Índice del contorno a dibujar
+  * -1: Dibuja todos los contornos
+  * 0: Dibuja solo el primer contorno
+  * 1: Dibuja solo el segundo contorno, etc.
+  
+- color (tuple): Color del contorno en formato BGR
+  * (255, 0, 0): Azul
+  * (0, 255, 0): Verde
+  * (0, 0, 255): Rojo
+  * (128, 0, 255): Magenta
+  * (255, 255, 255): Blanco
+  
+- thickness (int): Grosor de la línea del contorno
+  * 1-10: Grosor en píxeles (valores normales)
+  * -1: Rellena el contorno completamente
+  * cv2.FILLED: Igual que -1
+
+PARÁMETROS OPCIONALES:
+- lineType (int): Tipo de línea (cv2.LINE_AA para suavizado)
+- hierarchy: Información de jerarquía
+- maxLevel: Nivel máximo de contornos anidados a dibujar
+
+RETORNA:
+- None (modifica la imagen original directamente)
+
+EFECTO DE CAMBIAR PARÁMETROS:
+- contourIdx = -1: Útil para ver todos los objetos
+- contourIdx = 0: Útil si solo interesa el objeto más grande
+- thickness alto: Contornos gruesos y visibles
+- thickness = -1: Objetos rellenos (útil para máscaras)
+
+EJEMPLO:
+```python
+import cv2
+
+# Encontrar contornos
+contornos, _ = cv2.findContours(binaria, cv2.RETR_LIST, 
+                                 cv2.CHAIN_APPROX_SIMPLE)
+
+# Dibujar todos los contornos en verde
+cv2.drawContours(imagen, contornos, -1, (0, 255, 0), 2)
+
+# Dibujar solo el primer contorno en rojo, relleno
+cv2.drawContours(imagen, contornos, 0, (0, 0, 255), -1)
+
+# Dibujar el segundo contorno en azul con grosor 5
+cv2.drawContours(imagen, contornos, 1, (255, 0, 0), 5)
+```
+
+================================================================================
+
+## FLUJO TÍPICO DE DETECCIÓN DE CONTORNOS
+
+================================================================================
+
+1. CARGAR IMAGEN
+   cv2.imread() → Imagen en formato BGR
+
+2. CONVERTIR A ESCALA DE GRISES
+   cv2.cvtColor() → Imagen con un solo canal de intensidad
+
+3. UMBRALIZAR
+   cv2.threshold() → Imagen binaria (blanco y negro)
+
+4. ENCONTRAR CONTORNOS
+   cv2.findContours() → Lista de contornos detectados
+
+5. DIBUJAR CONTORNOS
+   cv2.drawContours() → Visualización de los contornos encontrados
+
+6. MOSTRAR RESULTADOS
+   cv2.imshow() + cv2.waitKey() + cv2.destroyAllWindows()
+
+EJEMPLO COMPLETO:
+```python
+import cv2
+
+# 1. Cargar
+imagen = cv2.imread('objeto.jpg')
+
+# 2. Grises
+gris = cv2.cvtColor(imagen, cv2.COLOR_BGR2GRAY)
+
+# 3. Umbralizar
+_, binaria = cv2.threshold(gris, 100, 255, cv2.THRESH_BINARY)
+
+# 4. Encontrar contornos
+contornos, _ = cv2.findContours(binaria, cv2.RETR_LIST, 
+                                 cv2.CHAIN_APPROX_SIMPLE)
+
+# 5. Dibujar
+cv2.drawContours(imagen, contornos, -1, (0, 255, 0), 3)
+
+# 6. Mostrar
+cv2.imshow('Contornos', imagen)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
+```
+
+================================================================================
