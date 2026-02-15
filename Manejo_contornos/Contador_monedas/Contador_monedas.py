@@ -5,7 +5,7 @@ import numpy as np
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
-ruta_imagen = os.path.join(script_dir, "Data", "monedas.jpg")
+ruta_imagen = os.path.join(script_dir, "Data", "monedas_soles.jpg")
 
 valorGauss=1
 valorKernel=7
