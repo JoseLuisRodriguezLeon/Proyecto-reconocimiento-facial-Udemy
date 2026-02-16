@@ -1,0 +1,1766 @@
+En la documentacion propuesta la pagina para "Open cv contornos" ya no funciona, en su lugar se usara la siguente pagina:
+
+-> https://opencv-tutorial.readthedocs.io/en/latest/intro/intro.html 
+
+Lo documentado en la siguiente parte es lo visto en el curso de udemy, pero es informacion y conceptos que no se encuentran especificadoes en la nueva documentacion propuesta:
+
+================================================================================
+DOCUMENTACIÓN TÉCNICA: DETECCIÓN DE MONEDAS CON OPENCV Y PYTHON
+================================================================================
+
+
+1. INTRODUCCIÓN AL PROCESAMIENTO DE IMÁGENES DIGITALES
+================================================================================
+
+Antes de entrar en el código específico, es fundamental comprender qué es una 
+imagen digital desde el punto de vista computacional y matemático.
+
+1.1 REPRESENTACIÓN MATEMÁTICA DE UNA IMAGEN
+
+Una imagen digital no es más que una matriz bidimensional de números. Cada 
+elemento de esta matriz representa un píxel (picture element), que es la unidad 
+más pequeña de información en una imagen. Si tenemos una imagen en escala de 
+grises de 640x480 píxeles, matemáticamente la podemos representar como:
+
+    I(x, y) donde:
+    - x ∈ [0, 639] representa la coordenada horizontal
+    - y ∈ [0, 479] representa la coordenada vertical
+    - I(x, y) ∈ [0, 255] representa la intensidad del píxel
+
+El valor 255 no es arbitrario: se debe a que se utilizan 8 bits para 
+representar cada píxel, y 2^8 = 256 valores posibles (0-255). El valor 0 
+representa negro (ausencia total de luz) y 255 representa blanco (máxima 
+intensidad).
+
+Para imágenes en color, se utilizan tres matrices (una por cada canal de 
+color: Rojo, Verde, Azul en RGB, o Blue, Green, Red en BGR como usa OpenCV):
+
+    I(x, y) = [B(x, y), G(x, y), R(x, y)]
+
+donde cada canal también tiene valores en el rango [0, 255].
+
+1.2 POR QUÉ LAS MATRICES SON FUNDAMENTALES
+
+Las operaciones que realizaremos sobre las imágenes son, en esencia, 
+operaciones matriciales. Cuando aplicamos un filtro, estamos multiplicando 
+matrices. Cuando detectamos bordes, estamos calculando derivadas discretas 
+sobre matrices. Esta representación matemática es lo que permite que las 
+computadoras "vean" y procesen imágenes de manera eficiente.
+
+
+2. BIBLIOTECAS UTILIZADAS Y SU IMPORTANCIA
+================================================================================
+
+2.1 OPENCV (cv2) - OPEN SOURCE COMPUTER VISION LIBRARY
+
+OpenCV es una biblioteca de código abierto lanzada originalmente por Intel en 
+el año 2000, que se ha convertido en el estándar de facto para visión por 
+computadora. Está escrita principalmente en C++, pero tiene interfaces para 
+Python, Java y otros lenguajes.
+
+CARACTERÍSTICAS PRINCIPALES:
+- Más de 2500 algoritmos optimizados para procesamiento de imágenes y video
+- Implementaciones en C++ altamente optimizadas para rendimiento
+- Soporte para procesamiento en GPU (CUDA)
+- Multiplataforma (Windows, Linux, macOS, Android, iOS)
+
+IMPORTACIÓN:
+    import cv2 as cv2
+
+Aunque la convención común es solo "import cv2", en este código se usa el 
+alias explícito "cv2 as cv2" por claridad.
+
+ARQUITECTURA INTERNA:
+OpenCV organiza sus funciones en módulos:
+- core: estructuras de datos básicas (matrices, vectores)
+- imgproc: procesamiento de imágenes (filtros, transformaciones)
+- imgcodecs: lectura/escritura de imágenes
+- videoio: captura de video
+- highgui: interfaz gráfica de usuario
+- objdetect: detección de objetos (faces, pedestrians)
+
+2.2 NUMPY - NUMERICAL PYTHON
+
+NumPy es la biblioteca fundamental para computación científica en Python. Fue 
+creada en 2005 y proporciona soporte para arrays multidimensionales y matrices, 
+junto con una colección de funciones matemáticas de alto nivel.
+
+IMPORTACIÓN:
+    import numpy as np
+
+REPRESENTACIÓN INTERNA:
+NumPy almacena datos en bloques contiguos de memoria (a diferencia de las 
+listas de Python), lo que permite:
+- Operaciones vectorizadas extremadamente rápidas
+- Uso eficiente de caché del procesador
+- Interfaz directa con bibliotecas escritas en C/Fortran
+
+TIPO DE DATOS UINT8:
+En el código veremos np.uint8, que significa:
+- "u" = unsigned (sin signo, solo positivos)
+- "int" = integer (entero)
+- "8" = 8 bits
+Rango: [0, 255], perfecto para valores de píxeles
+
+EJEMPLO DE CREACIÓN DE ARRAY:
+    kernel = np.ones((7, 7), np.uint8)
+    
+Esta línea crea una matriz 7x7 donde cada elemento es 1:
+    [[1, 1, 1, 1, 1, 1, 1],
+     [1, 1, 1, 1, 1, 1, 1],
+     [1, 1, 1, 1, 1, 1, 1],
+     [1, 1, 1, 1, 1, 1, 1],
+     [1, 1, 1, 1, 1, 1, 1],
+     [1, 1, 1, 1, 1, 1, 1],
+     [1, 1, 1, 1, 1, 1, 1]]
+
+2.3 OS - OPERATING SYSTEM INTERFACE
+
+El módulo 'os' proporciona funciones para interactuar con el sistema operativo 
+de manera independiente de la plataforma.
+
+IMPORTACIÓN:
+    import os
+
+FUNCIONES UTILIZADAS EN EL CÓDIGO:
+
+os.path.dirname(path):
+    - Retorna el directorio padre de una ruta
+    - Ejemplo: os.path.dirname("/home/user/script.py") → "/home/user"
+
+os.path.abspath(path):
+    - Retorna la ruta absoluta de un archivo
+    - Convierte rutas relativas en absolutas
+    - Ejemplo: si estamos en /home/user/ y llamamos os.path.abspath("script.py")
+      retorna "/home/user/script.py"
+
+os.path.join(path1, path2, ...):
+    - Une componentes de ruta de manera correcta según el sistema operativo
+    - En Windows usa "\" y en Linux/Mac usa "/"
+    - Ejemplo: os.path.join("/home", "user", "data.jpg") → "/home/user/data.jpg"
+
+__file__:
+    - Variable especial de Python que contiene la ruta del script actual
+    - Permite construir rutas relativas al script sin importar desde dónde se ejecute
+
+
+3. LECTURA Y CARGA DE IMÁGENES
+================================================================================
+
+3.1 CONSTRUCCIÓN DE LA RUTA DEL ARCHIVO
+
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    ruta_imagen = os.path.join(script_dir, "Data", "monedas_soles.jpg")
+
+EXPLICACIÓN DETALLADA:
+
+Paso 1: __file__ contiene la ruta del script actual
+    Por ejemplo: "C:\Users\Juan\proyecto\detector.py"
+
+Paso 2: os.path.abspath(__file__) asegura que sea una ruta absoluta
+    Resultado: "C:\Users\Juan\proyecto\detector.py"
+
+Paso 3: os.path.dirname(...) extrae solo el directorio
+    Resultado: "C:\Users\Juan\proyecto"
+
+Paso 4: os.path.join(...) construye la ruta completa de manera multiplataforma
+    Resultado: "C:\Users\Juan\proyecto\Data\monedas_soles.jpg"
+
+VENTAJA DE ESTE ENFOQUE:
+El script funcionará correctamente sin importar desde qué directorio se ejecute.
+Si usáramos simplemente "Data/monedas_soles.jpg", fallaría si el script se 
+ejecuta desde otro directorio.
+
+3.2 LECTURA DE LA IMAGEN CON cv2.imread()
+
+    imagen = cv2.imread(ruta_imagen)
+    original = cv2.imread(ruta_imagen)
+
+FUNCIÓN: cv2.imread(filename, flags=cv2.IMREAD_COLOR)
+
+PARÁMETROS:
+- filename: (str) Ruta del archivo de imagen
+  Formatos soportados: .jpg, .png, .bmp, .tiff, .webp, entre otros
+  
+- flags: (int, opcional) Modo de lectura
+  Valores comunes:
+  * cv2.IMREAD_COLOR (1, default): Lee la imagen en color BGR
+  * cv2.IMREAD_GRAYSCALE (0): Lee la imagen en escala de grises
+  * cv2.IMREAD_UNCHANGED (-1): Lee la imagen incluyendo canal alpha
+
+RETORNO:
+- numpy.ndarray: Matriz tridimensional de forma (altura, ancho, canales)
+  Para imágenes en color: (H, W, 3) donde 3 son los canales BGR
+  Para escala de grises: (H, W)
+- None: Si la imagen no se puede leer (archivo no existe, formato no soportado)
+
+REPRESENTACIÓN INTERNA:
+Si leemos una imagen de 480x640 píxeles en color:
+    imagen.shape = (480, 640, 3)
+    imagen.dtype = uint8
+    imagen[0, 0, 0] = valor del canal Blue en el píxel (0,0)
+    imagen[0, 0, 1] = valor del canal Green en el píxel (0,0)
+    imagen[0, 0, 2] = valor del canal Red en el píxel (0,0)
+
+IMPORTANTE - ORDEN BGR VS RGB:
+OpenCV utiliza el orden BGR (Blue, Green, Red) en lugar del RGB tradicional.
+Esto es herencia de su diseño original y es una fuente común de confusión.
+Si una imagen se ve con colores incorrectos al mostrarla con otras bibliotecas
+(como matplotlib), es necesario convertir: cv2.cvtColor(imagen, cv2.COLOR_BGR2RGB)
+
+POR QUÉ SE LEE DOS VECES LA IMAGEN:
+En el código se carga la misma imagen en dos variables:
+- 'imagen': Se mantiene sin modificar para mostrar el original
+- 'original': Se modificará al final para dibujar los contornos detectados
+
+Esta es una práctica común para mantener una referencia al original y poder
+mostrar comparaciones antes/después del procesamiento.
+
+
+4. CONVERSIÓN A ESCALA DE GRISES
+================================================================================
+
+    gris = cv2.cvtColor(original, cv2.COLOR_BGR2GRAY)
+
+4.1 FUNCIÓN: cv2.cvtColor()
+
+PROPÓSITO:
+Convierte una imagen de un espacio de color a otro. Es una de las funciones
+más utilizadas en procesamiento de imágenes.
+
+SINTAXIS:
+    cv2.cvtColor(src, code)
+
+PARÁMETROS:
+- src: (numpy.ndarray) Imagen de entrada
+- code: (int) Código de conversión que especifica el cambio de espacio de color
+
+CÓDIGOS DE CONVERSIÓN COMUNES:
+- cv2.COLOR_BGR2GRAY: BGR a escala de grises
+- cv2.COLOR_BGR2RGB: BGR a RGB
+- cv2.COLOR_BGR2HSV: BGR a HSV (Hue, Saturation, Value)
+- cv2.COLOR_GRAY2BGR: Escala de grises a BGR
+- cv2.COLOR_BGR2LAB: BGR a LAB (espacio de color perceptual)
+
+RETORNO:
+- numpy.ndarray: Imagen convertida al nuevo espacio de color
+
+4.2 MATEMÁTICA DE LA CONVERSIÓN BGR A ESCALA DE GRISES
+
+La conversión no es un simple promedio de los canales RGB. Se utiliza una
+fórmula ponderada basada en la percepción humana del color:
+
+    GRAY = 0.299 × R + 0.587 × G + 0.114 × B
+
+JUSTIFICACIÓN MATEMÁTICA:
+El ojo humano no es igualmente sensible a todos los colores:
+- Verde: Mayor sensibilidad (57% del peso)
+- Rojo: Sensibilidad media (30% del peso)
+- Azul: Menor sensibilidad (11% del peso)
+
+Estos coeficientes provienen del estándar ITU-R BT.601 para video digital.
+
+EJEMPLO NUMÉRICO:
+Si tenemos un píxel con valores BGR = [100, 150, 200]:
+    GRAY = 0.114 × 100 + 0.587 × 150 + 0.299 × 200
+    GRAY = 11.4 + 88.05 + 59.8
+    GRAY = 159.25 ≈ 159
+
+4.3 CAMBIO EN LA REPRESENTACIÓN MATRICIAL
+
+ANTES (imagen en color):
+    original.shape = (480, 640, 3)  # 3 canales
+    original.dtype = uint8
+    Tamaño en memoria: 480 × 640 × 3 = 921,600 bytes ≈ 900 KB
+
+DESPUÉS (imagen en escala de grises):
+    gris.shape = (480, 640)  # Un solo canal
+    gris.dtype = uint8
+    Tamaño en memoria: 480 × 640 = 307,200 bytes ≈ 300 KB
+
+Reducción del 67% en el tamaño de datos.
+
+4.4 POR QUÉ CONVERTIR A ESCALA DE GRISES
+
+RAZONES TÉCNICAS:
+1. SIMPLICIDAD COMPUTACIONAL:
+   - Procesar 1 canal es 3 veces más rápido que procesar 3 canales
+   - Reduce el tiempo de cómputo en algoritmos posteriores
+   
+2. ALGORITMOS DE DETECCIÓN DE BORDES:
+   - Los algoritmos como Canny operan sobre gradientes de intensidad
+   - La intensidad en escala de grises es una medida directa
+   - En imágenes de color, se tendría que decidir cómo combinar gradientes de 3 canales
+   
+3. REDUCCIÓN DE RUIDO:
+   - El ruido en diferentes canales de color puede ser inconsistente
+   - La escala de grises promedia inherentemente algo del ruido
+   
+4. SUFICIENCIA INFORMACIONAL:
+   - Para detección de formas (como monedas circulares), el color es irrelevante
+   - Los bordes y contornos son definidos por cambios de intensidad, no de color
+
+
+5. FILTRO GAUSSIANO (DESENFOQUE GAUSSIANO)
+================================================================================
+
+    gauss = cv2.GaussianBlur(gris, (valorGauss, valorGauss), 0)
+    # donde valorGauss = 5
+
+5.1 FUNCIÓN: cv2.GaussianBlur()
+
+PROPÓSITO:
+Aplica un filtro de desenfoque gaussiano para suavizar la imagen y reducir 
+el ruido de alta frecuencia.
+
+SINTAXIS:
+    cv2.GaussianBlur(src, ksize, sigmaX, sigmaY=0, borderType=cv2.BORDER_DEFAULT)
+
+PARÁMETROS:
+- src: (numpy.ndarray) Imagen de entrada
+- ksize: (tuple) Tamaño del kernel gaussiano (ancho, alto)
+  * DEBE ser impar (3, 5, 7, 9, 11, ...)
+  * Mayor tamaño = mayor desenfoque
+  * Si ksize = (0, 0), se calcula automáticamente desde sigma
+  
+- sigmaX: (float) Desviación estándar del kernel en dirección X
+  * Si sigmaX = 0, se calcula como: sigma = 0.3 × ((ksize - 1) × 0.5 - 1) + 0.8
+  * Controla el "ancho" de la campana gaussiana
+  
+- sigmaY: (float, opcional) Desviación estándar en dirección Y
+  * Si es 0, se usa el mismo valor que sigmaX
+  
+- borderType: (int, opcional) Método para manejar píxeles en los bordes
+
+RETORNO:
+- numpy.ndarray: Imagen suavizada del mismo tamaño y tipo que la entrada
+
+5.2 FUNDAMENTO MATEMÁTICO: LA DISTRIBUCIÓN GAUSSIANA
+
+El filtro gaussiano se basa en la función gaussiana (también llamada función
+de distribución normal):
+
+    G(x, y) = (1 / (2πσ²)) × e^(-(x² + y²) / (2σ²))
+
+donde:
+- x, y: Coordenadas relativas al centro del kernel
+- σ (sigma): Desviación estándar, controla el "ancho" de la campana
+- e: Número de Euler (≈ 2.71828)
+- π: Pi (≈ 3.14159)
+
+VISUALIZACIÓN DE LA FUNCIÓN:
+La función gaussiana 2D forma una "campana" o "montaña" centrada en (0,0).
+Los valores más altos están en el centro y disminuyen gradualmente hacia
+los bordes.
+
+EJEMPLO CON KERNEL 5×5 y σ=1:
+Para cada posición (x, y) en el kernel centrado en (0, 0):
+
+    Posiciones:     x:  -2  -1   0   1   2
+                    y:
+                   -2  [0.00296 0.01330 0.02193 0.01330 0.00296]
+                   -1  [0.01330 0.05963 0.09832 0.05963 0.01330]
+                    0  [0.02193 0.09832 0.16210 0.09832 0.02193]
+                    1  [0.01330 0.05963 0.09832 0.05963 0.01330]
+                    2  [0.00296 0.01330 0.02193 0.01330 0.00296]
+
+Nota: Los valores se normalizan para que sumen 1.
+
+5.3 PROCESO DE CONVOLUCIÓN
+
+La aplicación del filtro gaussiano es una operación de convolución:
+
+    G[i, j] = Σ Σ I[i+m, j+n] × K[m, n]
+             m  n
+
+donde:
+- I[i, j]: Píxel de la imagen original en posición (i, j)
+- K[m, n]: Valor del kernel en posición (m, n)
+- G[i, j]: Píxel resultante de la imagen suavizada
+
+EJEMPLO PASO A PASO CON KERNEL 3×3:
+
+Supongamos un kernel gaussiano simplificado:
+    K = [1  2  1]     (normalizado, suma = 16)
+        [2  4  2] / 16
+        [1  2  1]
+
+Y una región 3×3 de la imagen:
+    Región = [120  130  125]
+             [115  140  135]
+             [110  125  130]
+
+Cálculo del píxel central:
+    Nuevo_valor = (120×1 + 130×2 + 125×1 +
+                   115×2 + 140×4 + 135×2 +
+                   110×1 + 125×2 + 130×1) / 16
+                = (120 + 260 + 125 + 230 + 560 + 270 + 110 + 250 + 130) / 16
+                = 2055 / 16
+                = 128.4 ≈ 128
+
+Este proceso se repite para cada píxel de la imagen.
+
+5.4 FRECUENCIAS ESPACIALES Y RUIDO
+
+CONCEPTO DE FRECUENCIA EN IMÁGENES:
+- ALTA FRECUENCIA: Cambios rápidos de intensidad (bordes, ruido, detalles finos)
+- BAJA FRECUENCIA: Cambios graduales (áreas uniformes, formas generales)
+
+El filtro gaussiano es un FILTRO PASO-BAJO:
+- Permite pasar frecuencias bajas (estructuras grandes, formas generales)
+- Atenúa frecuencias altas (ruido, detalles muy finos)
+
+TIPOS DE RUIDO QUE REDUCE:
+1. RUIDO GAUSSIANO: Variaciones aleatorias de intensidad en cada píxel
+   - Común en sensores de cámara, especialmente en condiciones de poca luz
+   
+2. RUIDO SALT-AND-PEPPER: Píxeles aislados muy brillantes o muy oscuros
+   - Causado por errores en la transmisión o sensores defectuosos
+   
+3. RUIDO DE CUANTIZACIÓN: Errores por la discretización de valores analógicos
+
+5.5 EFECTOS DEL TAMAÑO DEL KERNEL Y SIGMA
+
+KERNEL PEQUEÑO (3×3, σ≈0.5):
+- Desenfoque leve
+- Mantiene más detalles
+- Elimina menos ruido
+- Procesamiento más rápido
+
+KERNEL MEDIANO (5×5, σ≈1.0):
+- Desenfoque moderado (usado en este código)
+- Balance entre reducción de ruido y preservación de bordes
+- Recomendado para la mayoría de aplicaciones
+
+KERNEL GRANDE (9×9 o mayor, σ≈2.0):
+- Desenfoque fuerte
+- Elimina mucho ruido pero también detalles importantes
+- Puede suavizar excesivamente los bordes
+- Procesamiento más lento
+
+5.6 POR QUÉ ES NECESARIO ANTES DE CANNY
+
+El detector de bordes Canny es muy sensible a variaciones de intensidad.
+Sin el filtro gaussiano:
+
+PROBLEMA: El ruido crea miles de "falsos bordes"
+    Imagen con ruido → Canny → Detecta ruido como bordes
+
+SOLUCIÓN: El filtro gaussiano elimina ruido pero preserva bordes reales
+    Imagen con ruido → GaussianBlur → Canny → Detecta solo bordes reales
+
+ANALOGÍA:
+Imagine una fotografía de una montaña con arena en el lente.
+- Sin filtro: La cámara "ve" cada grano de arena como una característica importante
+- Con filtro: La cámara "enfoca" la montaña e ignora la arena
+
+5.7 IMPLEMENTACIÓN EN EL CÓDIGO
+
+    gauss = cv2.GaussianBlur(gris, (5, 5), 0)
+
+INTERPRETACIÓN:
+- gris: Imagen en escala de grises de entrada
+- (5, 5): Kernel de 5×5 píxeles
+- 0: σ se calcula automáticamente
+  Cálculo: σ = 0.3 × ((5-1) × 0.5 - 1) + 0.8 = 0.3 × 1 + 0.8 = 1.1
+
+RESULTADO:
+- Imagen suavizada que mantiene las estructuras principales (contornos de monedas)
+- Ruido de alta frecuencia significativamente reducido
+- Preparada para una detección de bordes más robusta
+
+
+6. DETECCIÓN DE BORDES CON EL ALGORITMO CANNY
+================================================================================
+
+    canny = cv2.Canny(gauss, 60, 100)
+
+6.1 FUNCIÓN: cv2.Canny()
+
+PROPÓSITO:
+Detecta bordes en una imagen utilizando el algoritmo de Canny, considerado
+uno de los mejores detectores de bordes por su optimalidad matemática.
+
+SINTAXIS:
+    cv2.Canny(image, threshold1, threshold2, apertureSize=3, L2gradient=False)
+
+PARÁMETROS:
+- image: (numpy.ndarray) Imagen de entrada (debe ser escala de grises)
+- threshold1: (float) Umbral inferior para la histéresis
+- threshold2: (float) Umbral superior para la histéresis
+  * Recomendación: threshold2 = 2 × threshold1 o 3 × threshold1
+  
+- apertureSize: (int, opcional) Tamaño de apertura para el operador Sobel
+  * Default: 3 (kernel 3×3)
+  * Valores posibles: 3, 5, 7
+  
+- L2gradient: (bool, opcional) Si True, usa norma L2 para calcular gradiente
+  * False (default): |Gx| + |Gy|
+  * True: √(Gx² + Gy²) [más preciso pero más costoso]
+
+RETORNO:
+- numpy.ndarray: Imagen binaria donde:
+  * 255 (blanco): Píxel es parte de un borde
+  * 0 (negro): Píxel no es un borde
+
+6.2 FUNDAMENTO MATEMÁTICO: ¿QUÉ ES UN BORDE?
+
+DEFINICIÓN FORMAL:
+Un borde es un conjunto de píxeles donde la intensidad de la imagen cambia
+abruptamente. Matemáticamente, un borde es donde la primera derivada de
+la función de intensidad tiene un máximo local (o la segunda derivada cruza por cero).
+
+Para una imagen I(x, y), el gradiente es:
+    ∇I = [∂I/∂x, ∂I/∂y]
+
+donde:
+- ∂I/∂x: Derivada parcial respecto a x (cambio horizontal)
+- ∂I/∂y: Derivada parcial respecto a y (cambio vertical)
+
+MAGNITUD DEL GRADIENTE:
+    |∇I| = √((∂I/∂x)² + (∂I/∂y)²)
+
+DIRECCIÓN DEL GRADIENTE:
+    θ = arctan(∂I/∂y / ∂I/∂x)
+
+6.3 LOS CINCO PASOS DEL ALGORITMO CANNY
+
+PASO 1: SUAVIZADO GAUSSIANO
+Ya realizado previamente con GaussianBlur. Canny internamente también puede
+aplicar un filtro gaussiano si no se proporciona.
+
+PASO 2: CÁLCULO DE GRADIENTES CON OPERADOR SOBEL
+
+El operador Sobel aproxima las derivadas usando convolución con kernels:
+
+Kernel Sobel para ∂I/∂x (detecta cambios horizontales):
+    Gx = [-1  0  +1]
+         [-2  0  +2]
+         [-1  0  +1]
+
+Kernel Sobel para ∂I/∂y (detecta cambios verticales):
+    Gy = [-1  -2  -1]
+         [ 0   0   0]
+         [+1  +2  +1]
+
+EJEMPLO DE APLICACIÓN:
+Para una región 3×3 de la imagen:
+    Región = [50   55   60]
+             [50   55   60]
+             [50   55   60]
+
+Cálculo de Gx (gradiente horizontal):
+    Gx = (-1×50 + 0×55 + 1×60) +
+         (-2×50 + 0×55 + 2×60) +
+         (-1×50 + 0×55 + 1×60)
+       = 10 + 20 + 10 = 40
+
+Cálculo de Gy (gradiente vertical):
+    Gy = (-1×50 + -2×55 + -1×60) +
+         ( 0×50 +  0×55 +  0×60) +
+         ( 1×50 +  2×55 +  1×60)
+       = -220 + 0 + 220 = 0
+
+Magnitud del gradiente:
+    |G| = √(40² + 0²) = 40
+
+Dirección del gradiente:
+    θ = arctan(0/40) = 0° (borde vertical)
+
+PASO 3: SUPRESIÓN NO-MÁXIMA (NON-MAXIMUM SUPPRESSION)
+
+OBJETIVO: Adelgazar los bordes para tener líneas de un solo píxel de ancho.
+
+PROCESO:
+1. Para cada píxel, examinar la magnitud del gradiente de sus vecinos
+   en la dirección perpendicular al gradiente
+2. Si el píxel actual NO tiene la magnitud máxima en esa dirección, suprimirlo
+3. Solo mantener los píxeles que son máximos locales
+
+EJEMPLO VISUAL:
+Supongamos gradientes en una línea perpendicular al borde:
+    Posición:  -2   -1    0   +1   +2
+    Magnitud:  10   30   50   35   15
+    
+El píxel en posición 0 (magnitud 50) es el máximo local, se mantiene.
+Los demás se suprimen.
+
+RESULTADO: Bordes de 1 píxel de ancho en lugar de "bandas" gruesas.
+
+PASO 4: UMBRALIZACIÓN CON HISTÉRESIS (HYSTERESIS THRESHOLDING)
+
+CONCEPTO:
+En lugar de usar un solo umbral, se usan DOS umbrales para clasificar píxeles:
+- threshold2 (umbral alto): 100 en nuestro código
+- threshold1 (umbral bajo): 60 en nuestro código
+
+CLASIFICACIÓN DE PÍXELES:
+1. BORDES FUERTES: Magnitud ≥ threshold2 (≥ 100)
+   → Definitivamente es un borde, se mantiene
+   
+2. BORDES DÉBILES: threshold1 ≤ Magnitud < threshold2 (60-100)
+   → Podría ser un borde, se decide en el siguiente paso
+   
+3. NO-BORDES: Magnitud < threshold1 (< 60)
+   → Definitivamente no es un borde, se descarta
+
+PASO 5: RASTREO DE BORDES POR CONECTIVIDAD
+
+Para cada píxel clasificado como BORDE DÉBIL:
+- Si está conectado (vecino) a un BORDE FUERTE, se ACEPTA como borde
+- Si NO está conectado a ningún BORDE FUERTE, se RECHAZA
+
+EJEMPLO:
+    Red de píxeles (F=Fuerte, D=Débil, N=No-borde):
+    
+    N  N  N  N  N
+    N  F  D  D  N
+    N  N  N  D  N
+    N  N  N  N  N
+    
+    Análisis:
+    - Primer D (vecino de F): ACEPTA ✓
+    - Segundo D (vecino del primer D, conectado indirectamente a F): ACEPTA ✓
+    - Tercer D (no conectado a F): RECHAZA ✗
+
+6.4 MATEMÁTICA DE LA HISTÉRESIS
+
+La histéresis es un concepto de sistemas dinámicos donde el estado actual
+depende no solo de la entrada actual sino también del historial.
+
+En Canny, la histéresis funciona como un "filtro de confianza":
+- Un píxel con magnitud 80 (borde débil) solo se acepta si está cerca de
+  un píxel con magnitud >100 (borde fuerte)
+- Esto evita ruido aislado pero preserva bordes completos incluso si
+  algunas partes son más tenues
+
+VENTAJAS SOBRE UMBRAL SIMPLE:
+Con umbral simple de 80:
+- Problema 1: Incluye demasiado ruido (falsos positivos)
+
+Con umbral simple de 100:
+- Problema 2: Fragmenta bordes reales (falsos negativos)
+
+Con histéresis (60-100):
+- Solución: Preserva bordes completos mientras rechaza ruido aislado
+
+6.5 SELECCIÓN DE UMBRALES
+
+REGLAS GENERALES:
+1. threshold2 / threshold1 ≈ 2:1 o 3:1
+2. Umbrales muy altos (ej: 200-300): Solo bordes muy nítidos, pierde detalles
+3. Umbrales muy bajos (ej: 20-40): Incluye mucho ruido
+4. Para monedas en fondo claro: umbrales medios (60-100) funcionan bien
+
+AJUSTE EXPERIMENTAL:
+No existe una fórmula universal para seleccionar umbrales. Se debe:
+1. Empezar con una relación 2:1 (ej: 50-100)
+2. Visualizar el resultado
+3. Ajustar según:
+   - Demasiados bordes fragmentados → Bajar threshold2
+   - Demasiado ruido → Subir threshold1
+   - Bordes muy gruesos → Verificar supresión no-máxima
+
+6.6 IMPLEMENTACIÓN EN EL CÓDIGO
+
+    canny = cv2.Canny(gauss, 60, 100)
+
+INTERPRETACIÓN:
+- gauss: Imagen ya suavizada (reduces ruido adicional)
+- 60: Píxeles con magnitud ≥60 y <100 son candidatos condicionales
+- 100: Píxeles con magnitud ≥100 son bordes definitivos
+
+RESULTADO ESPERADO:
+- Imagen binaria (0 o 255)
+- Bordes de las monedas claramente delineados
+- Bordes de 1 píxel de ancho
+- Poco o ningún ruido si el filtro gaussiano funcionó correctamente
+
+6.7 CARACTERÍSTICAS QUE HACEN A CANNY ÓPTIMO
+
+John Canny definió tres criterios para un detector de bordes óptimo:
+
+1. BUENA DETECCIÓN:
+   - Baja tasa de falsos positivos (no detectar ruido como bordes)
+   - Baja tasa de falsos negativos (no perder bordes reales)
+
+2. BUENA LOCALIZACIÓN:
+   - Los bordes detectados deben estar lo más cerca posible de los bordes reales
+   - Logrado con la supresión no-máxima
+
+3. RESPUESTA ÚNICA:
+   - Un solo borde no debe ser detectado como múltiples bordes
+   - Logrado con la histéresis
+
+
+7. OPERACIONES MORFOLÓGICAS
+================================================================================
+
+7.1 CREACIÓN DEL KERNEL (ELEMENTO ESTRUCTURANTE)
+
+    kernel = np.ones((valorKernel, valorKernel), np.uint8)
+    # donde valorKernel = 7
+
+FUNCIÓN: numpy.ones()
+
+SINTAXIS:
+    numpy.ones(shape, dtype=float)
+
+PARÁMETROS:
+- shape: (tuple) Dimensiones del array a crear
+  En este caso: (7, 7) = matriz 7×7
+  
+- dtype: (type) Tipo de datos de los elementos
+  np.uint8 = enteros sin signo de 8 bits [0-255]
+
+RETORNO:
+- numpy.ndarray: Matriz llena de unos con las dimensiones especificadas
+
+RESULTADO EN MEMORIA:
+    kernel = [[1, 1, 1, 1, 1, 1, 1],
+              [1, 1, 1, 1, 1, 1, 1],
+              [1, 1, 1, 1, 1, 1, 1],
+              [1, 1, 1, 1, 1, 1, 1],
+              [1, 1, 1, 1, 1, 1, 1],
+              [1, 1, 1, 1, 1, 1, 1],
+              [1, 1, 1, 1, 1, 1, 1]]
+
+7.2 ¿QUÉ ES UN KERNEL EN MORFOLOGÍA?
+
+DEFINICIÓN:
+El kernel (o elemento estructurante) es una matriz pequeña que define la
+vecindad y forma de las operaciones morfológicas. Es como un "pincel" o
+"sonda" que se desliza sobre la imagen.
+
+TIPOS DE KERNELS COMUNES:
+
+1. RECTANGULAR (usado en este código):
+    [[1, 1, 1],
+     [1, 1, 1],
+     [1, 1, 1]]
+
+2. CRUZ:
+    [[0, 1, 0],
+     [1, 1, 1],
+     [0, 1, 0]]
+
+3. ELÍPTICO:
+    [[0, 1, 1, 1, 0],
+     [1, 1, 1, 1, 1],
+     [1, 1, 1, 1, 1],
+     [1, 1, 1, 1, 1],
+     [0, 1, 1, 1, 0]]
+
+El kernel se puede crear con cv2.getStructuringElement():
+    kernel_rect = cv2.getStructuringElement(cv2.MORPH_RECT, (7,7))
+    kernel_elipse = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7,7))
+    kernel_cruz = cv2.getStructuringElement(cv2.MORPH_CROSS, (7,7))
+
+7.3 OPERACIONES MORFOLÓGICAS BÁSICAS
+
+Antes de explicar el cierre morfológico, debemos entender las dos operaciones
+fundamentales:
+
+7.3.1 EROSIÓN
+
+DEFINICIÓN MATEMÁTICA:
+    A ⊖ B = {z ∈ E | Bz ⊆ A}
+
+En lenguaje simple: La erosión "adelgaza" o "erosiona" las regiones blancas.
+
+PROCESO:
+1. Centrar el kernel en cada píxel de la imagen
+2. Si TODOS los píxeles bajo el kernel son blancos (255), el píxel central se mantiene blanco
+3. Si ALGÚN píxel bajo el kernel es negro (0), el píxel central se vuelve negro
+
+EJEMPLO 2D:
+Imagen binaria (B=blanco=1, N=negro=0):
+    [N N N N N]        Kernel 3×3:      Resultado:
+    [N B B B N]        [1 1 1]          [N N N N N]
+    [N B B B N]   ⊖    [1 1 1]     =    [N N N N N]
+    [N B B B N]        [1 1 1]          [N N B N N]
+    [N N N N N]                         [N N N N N]
+
+EFECTO:
+- Elimina píxeles blancos en los bordes de objetos
+- Reduce el tamaño de regiones blancas
+- Elimina estructuras pequeñas menores que el kernel
+- Separa objetos conectados por puentes delgados
+
+IMPLEMENTACIÓN:
+    erosionada = cv2.erode(imagen, kernel, iterations=1)
+
+7.3.2 DILATACIÓN
+
+DEFINICIÓN MATEMÁTICA:
+    A ⊕ B = {z ∈ E | B̂z ∩ A ≠ ∅}
+
+En lenguaje simple: La dilatación "engrosa" o "expande" las regiones blancas.
+
+PROCESO:
+1. Centrar el kernel en cada píxel de la imagen
+2. Si ALGÚN píxel bajo el kernel es blanco (255), el píxel central se vuelve blanco
+3. Solo se mantiene negro si TODOS los píxeles bajo el kernel son negros
+
+EJEMPLO 2D:
+Imagen binaria:
+    [N N N N N]        Kernel 3×3:      Resultado:
+    [N N N N N]        [1 1 1]          [N N B N N]
+    [N N B N N]   ⊕    [1 1 1]     =    [N B B B N]
+    [N N N N N]        [1 1 1]          [N N B N N]
+    [N N N N N]                         [N N N N N]
+
+EFECTO:
+- Agrega píxeles blancos en los bordes de objetos
+- Aumenta el tamaño de regiones blancas
+- Rellena pequeños huecos
+- Une objetos cercanos
+
+IMPLEMENTACIÓN:
+    dilatada = cv2.dilate(imagen, kernel, iterations=1)
+
+7.4 CIERRE MORFOLÓGICO (CLOSING)
+
+    cierre = cv2.morphologyEx(canny, cv2.MORPH_CLOSE, kernel)
+
+7.4.1 FUNCIÓN: cv2.morphologyEx()
+
+PROPÓSITO:
+Realiza operaciones morfológicas avanzadas combinando erosión y dilatación.
+
+SINTAXIS:
+    cv2.morphologyEx(src, op, kernel, iterations=1)
+
+PARÁMETROS:
+- src: (numpy.ndarray) Imagen de entrada (generalmente binaria)
+- op: (int) Tipo de operación morfológica
+  * cv2.MORPH_CLOSE: Cierre (dilatación + erosión)
+  * cv2.MORPH_OPEN: Apertura (erosión + dilatación)
+  * cv2.MORPH_GRADIENT: Gradiente morfológico
+  * cv2.MORPH_TOPHAT: Top hat
+  * cv2.MORPH_BLACKHAT: Black hat
+  
+- kernel: (numpy.ndarray) Elemento estructurante
+- iterations: (int) Número de veces que aplicar la operación
+
+RETORNO:
+- numpy.ndarray: Imagen procesada con la operación morfológica aplicada
+
+7.4.2 DEFINICIÓN MATEMÁTICA DEL CIERRE
+
+El cierre morfológico se define como:
+    A • B = (A ⊕ B) ⊖ B
+
+Es decir: Primero DILATAR, luego EROSIONAR
+
+SECUENCIA DE OPERACIONES:
+1. Aplicar dilatación a la imagen con el kernel
+2. Aplicar erosión al resultado con el mismo kernel
+
+7.4.3 EJEMPLO VISUAL DEL CIERRE
+
+Imagen original (contorno con huecos):
+    [B B B B B B N N]
+    [B N N N N B B N]
+    [B N N N N N B N]
+    [B N N N N B B N]
+    [B B B B B B N N]
+
+Después de DILATACIÓN (expande bordes, cierra huecos):
+    [B B B B B B B N]
+    [B B B B B B B N]
+    [B B B B B B B N]
+    [B B B B B B B N]
+    [B B B B B B B N]
+
+Después de EROSIÓN (reduce al tamaño aproximadamente original):
+    [N B B B B B N N]
+    [B B B B B B B N]
+    [B B B B B B B N]
+    [B B B B B B B N]
+    [N B B B B B N N]
+
+RESULTADO: El hueco interior se ha rellenado manteniendo la forma general.
+
+7.4.4 PROPIEDADES MATEMÁTICAS DEL CIERRE
+
+1. IDEMPOTENCIA:
+   Aplicar cierre dos veces produce el mismo resultado que aplicarlo una vez.
+   (A • B) • B = A • B
+
+2. EXTENSIVIDAD:
+   El resultado siempre contiene la imagen original.
+   A ⊆ A • B
+
+3. PRESERVACIÓN DE CONECTIVIDAD:
+   No crea nuevos componentes conectados, solo modifica los existentes.
+
+7.4.5 APLICACIÓN EN DETECCIÓN DE MONEDAS
+
+PROBLEMA QUE RESUELVE:
+El algoritmo Canny puede producir contornos fragmentados debido a:
+- Variaciones en el contraste del borde de la moneda
+- Pequeños huecos en la superficie de la moneda (rayones, suciedad)
+- Inconsistencias en la iluminación
+
+EJEMPLO DE CONTORNO FRAGMENTADO:
+    Canny produce:     Deseamos:
+    B B   B B          B B B B B
+    B       B          B       B
+    B   B   B          B       B
+    B       B          B       B
+    B B B B B          B B B B B
+
+CÓMO EL CIERRE LO SOLUCIONA:
+1. DILATACIÓN: Expande los fragmentos de borde, haciendo que se toquen
+2. EROSIÓN: Reduce el contorno a su tamaño aproximadamente original
+3. RESULTADO: Contorno continuo y cerrado
+
+7.4.6 TAMAÑO DEL KERNEL Y SU EFECTO
+
+KERNEL PEQUEÑO (3×3):
+- Cierra solo huecos muy pequeños
+- Preserva mejor los detalles
+- Puede no unir fragmentos separados por más de 1-2 píxeles
+
+KERNEL MEDIANO (7×7, usado en el código):
+- Cierra huecos de tamaño moderado
+- Buen balance para monedas típicas
+- Une fragmentos separados por ~3-4 píxeles
+
+KERNEL GRANDE (15×15 o mayor):
+- Cierra huecos grandes
+- Puede unir objetos que no deberían unirse
+- Pierde detalles finos
+
+7.4.7 ALTERNATIVA: APERTURA MORFOLÓGICA (NO USADA AQUÍ)
+
+La apertura es la operación inversa:
+    A ○ B = (A ⊖ B) ⊕ B
+
+Primero EROSIONA, luego DILATA
+
+EFECTO:
+- Elimina pequeñas protuberancias
+- Suaviza contornos
+- Rompe conexiones delgadas entre objetos
+
+CUÁNDO USAR CADA UNA:
+- CIERRE: Cuando hay huecos en objetos (nuestro caso)
+- APERTURA: Cuando hay ruido pequeño alrededor de objetos
+
+7.5 IMPLEMENTACIÓN EN EL CÓDIGO
+
+    cierre = cv2.morphologyEx(canny, cv2.MORPH_CLOSE, kernel)
+
+INTERPRETACIÓN:
+- canny: Imagen con bordes detectados (posiblemente fragmentados)
+- cv2.MORPH_CLOSE: Operación de cierre (dilata, luego erosiona)
+- kernel: Matriz 7×7 de unos (define la vecindad de la operación)
+
+RESULTADO ESPERADO:
+- Contornos de monedas cerrados y continuos
+- Huecos pequeños rellenados
+- Forma general de las monedas preservada
+- Preparado para la detección de contornos completos
+
+
+8. BÚSQUEDA Y EXTRACCIÓN DE CONTORNOS
+================================================================================
+
+    contornos, jerarquía = cv2.findContours(cierre.copy(), 
+                                            cv2.RETR_EXTERNAL, 
+                                            cv2.CHAIN_APPROX_SIMPLE)
+
+8.1 FUNCIÓN: cv2.findContours()
+
+PROPÓSITO:
+Encuentra todos los contornos en una imagen binaria. Un contorno es una curva
+que une todos los puntos continuos del mismo color o intensidad.
+
+SINTAXIS:
+    cv2.findContours(image, mode, method)
+
+PARÁMETROS:
+- image: (numpy.ndarray) Imagen binaria de entrada
+  * IMPORTANTE: La función MODIFICA la imagen de entrada, por eso usamos .copy()
+  * Solo debe tener dos valores: 0 (negro) y 255 (blanco)
+  
+- mode: (int) Modo de recuperación de contornos
+  Opciones:
+  * cv2.RETR_EXTERNAL: Solo contornos externos (usado en el código)
+  * cv2.RETR_LIST: Todos los contornos sin jerarquía
+  * cv2.RETR_TREE: Todos los contornos con jerarquía completa
+  * cv2.RETR_CCOMP: Contornos en dos niveles (externos e internos)
+  
+- method: (int) Método de aproximación de contornos
+  Opciones:
+  * cv2.CHAIN_APPROX_NONE: Almacena TODOS los puntos del contorno
+  * cv2.CHAIN_APPROX_SIMPLE: Comprime segmentos horizontales/verticales (usado)
+  * cv2.CHAIN_APPROX_TC89_L1: Algoritmo Teh-Chin
+  * cv2.CHAIN_APPROX_TC89_KCOS: Variante Teh-Chin
+
+RETORNO:
+- contornos: (list) Lista de contornos encontrados
+  * Cada contorno es un numpy.ndarray de forma (n, 1, 2)
+  * n = número de puntos en el contorno
+  * Cada punto: [[[x, y]]]
+  
+- jerarquía: (numpy.ndarray) Información de jerarquía de contornos
+  * Forma: (1, n, 4) donde n es el número de contornos
+  * Cada elemento: [Next, Previous, First_Child, Parent]
+
+8.2 TEORÍA DE CONTORNOS
+
+8.2.1 DEFINICIÓN FORMAL
+
+Un contorno C es una secuencia ordenada de puntos conectados:
+    C = {p₁, p₂, p₃, ..., pₙ}
+donde cada punto pᵢ = (xᵢ, yᵢ) es adyacente a pᵢ₊₁
+
+TIPOS DE CONECTIVIDAD:
+
+4-CONECTIVIDAD:
+Un píxel tiene 4 vecinos (arriba, abajo, izquierda, derecha)
+    [   N   ]
+    [N  P  N]
+    [   N   ]
+
+8-CONECTIVIDAD:
+Un píxel tiene 8 vecinos (incluye diagonales)
+    [N  N  N]
+    [N  P  N]
+    [N  N  N]
+
+OpenCV usa 8-conectividad por defecto.
+
+8.2.2 ALGORITMO DE SEGUIMIENTO DE BORDES
+
+OpenCV implementa el algoritmo de Suzuki-Abe (1985) para encontrar contornos:
+
+PASO 1: Escaneo de la imagen de izquierda a derecha, arriba a abajo
+PASO 2: Cuando se encuentra un píxel blanco con vecino negro (borde), iniciar seguimiento
+PASO 3: Seguir el borde usando reglas de conectividad
+PASO 4: Marcar píxeles visitados para no procesarlos de nuevo
+PASO 5: Determinar si el contorno es externo o interno (hueco)
+
+8.3 MODOS DE RECUPERACIÓN
+
+8.3.1 cv2.RETR_EXTERNAL (usado en el código)
+
+COMPORTAMIENTO:
+- Recupera SOLO los contornos más externos
+- Ignora cualquier contorno que esté dentro de otro contorno
+
+EJEMPLO:
+Imagen con dos círculos concéntricos:
+    Círculo externo (radio 50)
+    Círculo interno (radio 20)
+
+RETR_EXTERNAL detecta: 1 contorno (solo el círculo externo)
+
+JUSTIFICACIÓN PARA MONEDAS:
+- Las monedas son objetos sólidos sin huecos internos relevantes
+- Solo nos interesan los contornos exteriores
+- Evita detectar posibles marcas o textos dentro de las monedas
+
+8.3.2 cv2.RETR_LIST
+
+Detecta todos los contornos sin establecer relaciones jerárquicas.
+
+EJEMPLO:
+Si hay 5 monedas con 2 huecos internos cada una:
+RETR_LIST detecta: 15 contornos (5 externos + 10 internos)
+
+8.3.3 cv2.RETR_TREE
+
+Detecta todos los contornos y construye una jerarquía completa:
+- Nivel 0: Contornos externos
+- Nivel 1: Huecos dentro de objetos nivel 0
+- Nivel 2: Objetos dentro de huecos nivel 1
+- Y así sucesivamente...
+
+8.4 MÉTODOS DE APROXIMACIÓN
+
+8.4.1 cv2.CHAIN_APPROX_SIMPLE (usado en el código)
+
+COMPORTAMIENTO:
+Comprime el contorno eliminando puntos redundantes, conservando solo los
+puntos extremos de segmentos rectos.
+
+EJEMPLO:
+Contorno de un cuadrado con CHAIN_APPROX_NONE:
+    100 puntos: [(0,0), (1,0), (2,0), ..., (0,1), (0,2), ...]
+
+Mismo contorno con CHAIN_APPROX_SIMPLE:
+    4 puntos: [(0,0), (100,0), (100,100), (0,100)]
+
+AHORRO DE MEMORIA:
+Para círculos y formas curvas, la reducción es menor pero aún significativa:
+- Círculo con NONE: ~300 puntos
+- Círculo con SIMPLE: ~50-80 puntos
+
+Los puntos eliminados son interpolables, no se pierde información de la forma.
+
+8.4.2 cv2.CHAIN_APPROX_NONE
+
+Almacena ABSOLUTAMENTE TODOS los puntos del contorno.
+
+CUÁNDO USAR:
+- Cuando se necesita información de cada píxel del borde
+- Para análisis muy detallado de la forma
+- Para reconstrucción exacta del contorno
+
+DESVENTAJA:
+- Mayor uso de memoria
+- Procesamiento más lento en operaciones posteriores
+
+8.5 ESTRUCTURA DE DATOS DE CONTORNOS
+
+8.5.1 FORMATO DE UN CONTORNO
+
+Un contorno individual tiene la estructura:
+    contorno.shape = (n, 1, 2)
+
+donde:
+- n: número de puntos
+- 1: dimensión (siempre 1 para compatibilidad)
+- 2: coordenadas (x, y)
+
+EJEMPLO:
+    contorno[0] = [[[245, 123]]]  # Primer punto
+    contorno[1] = [[[247, 124]]]  # Segundo punto
+    contorno[2] = [[[249, 125]]]  # Tercer punto
+
+Para acceder a las coordenadas:
+    x = contorno[0][0][0]  # 245
+    y = contorno[0][0][1]  # 123
+
+O más convenientemente:
+    x, y = contorno[0][0]
+
+8.5.2 LISTA DE CONTORNOS
+
+La función retorna una lista:
+    contornos = [contorno1, contorno2, contorno3, ...]
+
+Para el código de monedas:
+    len(contornos) = número de monedas detectadas
+
+8.6 JERARQUÍA DE CONTORNOS
+
+Aunque no se usa en este código, la jerarquía proporciona información sobre
+las relaciones entre contornos.
+
+FORMATO:
+    jerarquía[0][i] = [Next, Previous, First_Child, Parent]
+
+donde:
+- Next: Índice del siguiente contorno al mismo nivel (-1 si no hay)
+- Previous: Índice del contorno anterior al mismo nivel (-1 si no hay)
+- First_Child: Índice del primer contorno hijo (-1 si no tiene hijos)
+- Parent: Índice del contorno padre (-1 si es de nivel superior)
+
+EJEMPLO:
+    jerarquía[0][0] = [1, -1, -1, -1]
+    Interpretación:
+    - Contorno 0 tiene siguiente contorno: 1
+    - No tiene contorno anterior (es el primero)
+    - No tiene hijos (no hay contornos dentro)
+    - No tiene padre (es de nivel superior)
+
+8.7 POR QUÉ SE USA .copy()
+
+    contornos, jerarquía = cv2.findContours(cierre.copy(), ...)
+
+RAZÓN:
+cv2.findContours() MODIFICA la imagen de entrada durante el procesamiento.
+Si no usamos .copy(), la imagen 'cierre' quedaría alterada y no podríamos
+mostrarla correctamente más tarde.
+
+COSTO:
+- Crear una copia tiene un costo de memoria O(n) donde n = tamaño de la imagen
+- Para una imagen 640×480: ~300 KB de memoria adicional
+- Este costo es despreciable comparado con los beneficios
+
+8.8 CONTEO DE OBJETOS
+
+    print("monedas encontradas: {}".format(len(contornos)))
+
+ANÁLISIS:
+- len(contornos): Número de elementos en la lista de contornos
+- Cada contorno representa un objeto detectado (idealmente, una moneda)
+
+POSIBLES DISCREPANCIAS:
+1. FALSOS POSITIVOS: Detectar como moneda algo que no lo es
+   Causas: Objetos circulares en el fondo, reflejos, sombras
+   
+2. FALSOS NEGATIVOS: No detectar monedas presentes
+   Causas: Monedas tocándose, mala iluminación, contraste insuficiente
+   
+3. FRAGMENTACIÓN: Una moneda detectada como múltiples contornos
+   Causa: Contorno no completamente cerrado después del cierre morfológico
+
+MEJORAS POSIBLES:
+- Filtrar contornos por área: cv2.contourArea(contorno)
+- Filtrar por circularidad: usar cv2.minEnclosingCircle()
+- Filtrar por perímetro: cv2.arcLength(contorno, True)
+
+
+9. VISUALIZACIÓN DE RESULTADOS
+================================================================================
+
+9.1 DIBUJO DE CONTORNOS
+
+    cv2.drawContours(original, contornos, -1, (0, 0, 255), 3)
+
+FUNCIÓN: cv2.drawContours()
+
+PROPÓSITO:
+Dibuja contornos sobre una imagen. Modifica la imagen directamente (in-place).
+
+SINTAXIS:
+    cv2.drawContours(image, contours, contourIdx, color, thickness)
+
+PARÁMETROS:
+- image: (numpy.ndarray) Imagen sobre la cual dibujar
+  * La imagen SE MODIFICA directamente
+  * Debe tener al menos 1 canal (escala de grises o color)
+  
+- contours: (list) Lista de contornos a dibujar
+  * Formato: lista de numpy.ndarray
+  
+- contourIdx: (int) Índice del contorno a dibujar
+  * -1: Dibujar TODOS los contornos
+  * 0, 1, 2, ...: Dibujar solo el contorno en esa posición
+  
+- color: (tuple) Color en formato BGR
+  * Para escala de grises: (valor,) donde valor ∈ [0, 255]
+  * Para color: (B, G, R) donde cada canal ∈ [0, 255]
+  
+- thickness: (int) Grosor de la línea en píxeles
+  * Valores positivos: Grosor de la línea
+  * -1 o cv2.FILLED: Rellenar el contorno completamente
+  * Default: 1 píxel
+
+PARÁMETROS OPCIONALES:
+- lineType: Tipo de línea (8-conectada, 4-conectada, anti-aliased)
+- hierarchy: Jerarquía de contornos (para dibujo selectivo)
+- maxLevel: Nivel máximo de jerarquía a dibujar
+- offset: Desplazamiento de todos los puntos
+
+RETORNO:
+- None (modifica la imagen en su lugar)
+
+9.2 ESPACIOS DE COLOR
+
+9.2.1 SISTEMA BGR (usado por OpenCV)
+
+Cada píxel se representa con tres valores:
+    Píxel = (B, G, R)
+    
+donde:
+- B (Blue): Intensidad del azul [0-255]
+- G (Green): Intensidad del verde [0-255]
+- R (Red): Intensidad del rojo [0-255]
+
+COLORES COMUNES:
+    Negro: (0, 0, 0)
+    Blanco: (255, 255, 255)
+    Rojo puro: (0, 0, 255)  ← usado en el código
+    Verde puro: (0, 255, 0)
+    Azul puro: (255, 0, 0)
+    Amarillo: (0, 255, 255)
+    Magenta: (255, 0, 255)
+    Cyan: (255, 255, 0)
+
+9.2.2 POR QUÉ ROJO PARA VISUALIZACIÓN
+
+El código usa (0, 0, 255) = ROJO para dibujar contornos.
+
+RAZONES:
+1. CONTRASTE: El rojo contrasta bien con la mayoría de imágenes
+2. CONVENCIÓN: Color estándar para marcar detecciones en visión por computadora
+3. VISIBILIDAD: Fácilmente distinguible a simple vista
+
+9.3 GROSOR DE LÍNEA
+
+    thickness = 3
+
+Un grosor de 3 píxeles proporciona:
+- Visibilidad clara de los contornos
+- No oscurece demasiado los objetos detectados
+- Buen balance para imágenes de resolución media
+
+CONSIDERACIONES:
+- Grosor 1: Puede ser difícil de ver en imágenes grandes
+- Grosor 5+: Puede oscurecer detalles importantes
+- Grosor -1: Rellena completamente (útil para máscaras, no para visualización)
+
+9.4 MOSTRAR MÚLTIPLES VENTANAS
+
+El código muestra 6 ventanas diferentes:
+
+    cv2.imshow("Original", imagen)
+    cv2.imshow("Grises", gris)
+    cv2.imshow("Gauss", gauss)
+    cv2.imshow("Canny", canny)
+    cv2.imshow("Cierre", cierre)
+    cv2.imshow("Resultado", original)
+
+9.4.1 FUNCIÓN: cv2.imshow()
+
+SINTAXIS:
+    cv2.imshow(winname, mat)
+
+PARÁMETROS:
+- winname: (str) Nombre de la ventana
+  * Si la ventana no existe, se crea automáticamente
+  * Si ya existe, se actualiza con la nueva imagen
+  
+- mat: (numpy.ndarray) Imagen a mostrar
+  * Escala de grises: forma (H, W)
+  * Color: forma (H, W, 3) en BGR
+  * Tipos soportados: uint8, uint16, float32, float64
+
+COMPORTAMIENTO:
+- La ventana se crea en el escritorio del sistema operativo
+- El tamaño se ajusta automáticamente al tamaño de la imagen
+- Se puede redimensionar manualmente
+- La imagen se escala automáticamente si es muy grande
+
+NORMALIZACIÓN AUTOMÁTICA:
+Para imágenes float32 o float64:
+- Valores [0.0, 1.0] se mapean a [0, 255]
+- Valores fuera de rango se recortan (clipping)
+
+Para uint16:
+- Valores [0, 65535] se escalan a [0, 255]
+
+9.4.2 DISTRIBUCIÓN DE VENTANAS
+
+OpenCV posiciona las ventanas automáticamente, pero se pueden sobreponer.
+Para controlar la posición:
+
+    cv2.namedWindow("Original", cv2.WINDOW_NORMAL)
+    cv2.moveWindow("Original", 0, 0)
+    
+donde (0, 0) es la esquina superior izquierda de la pantalla.
+
+9.5 ESPERA DE ENTRADA DE USUARIO
+
+    cv2.waitKey(0)
+
+FUNCIÓN: cv2.waitKey()
+
+PROPÓSITO:
+Espera a que el usuario presione una tecla. Es ESENCIAL para que las ventanas
+se muestren correctamente.
+
+SINTAXIS:
+    cv2.waitKey(delay)
+
+PARÁMETROS:
+- delay: (int) Tiempo de espera en milisegundos
+  * 0: Espera indefinidamente hasta que se presione una tecla
+  * Valor positivo: Espera ese número de milisegundos
+  * Retorna -1 si no se presiona tecla en el tiempo especificado
+
+RETORNO:
+- (int) Código ASCII de la tecla presionada
+  * -1 si no se presionó ninguna tecla (cuando delay > 0)
+  * Valor ASCII de la tecla (ej: 27 para ESC, 13 para ENTER)
+
+USO COMÚN PARA VIDEOS:
+    # Actualizar frame cada 30 ms (≈33 fps)
+    key = cv2.waitKey(30)
+    if key == 27:  # ESC presionada
+        break
+
+USO PARA COMPARACIÓN DE TECLAS:
+    key = cv2.waitKey(0) & 0xFF  # Máscara para obtener últimos 8 bits
+    if key == ord('q'):  # Tecla 'q' presionada
+        print("Saliendo...")
+
+IMPORTANCIA CRÍTICA:
+Sin cv2.waitKey(), las ventanas no se refrescarían y aparecerían en blanco
+o congeladas. Esta función permite que el sistema operativo procese eventos
+de la interfaz gráfica.
+
+9.6 CIERRE DE VENTANAS
+
+    cv2.destroyAllWindows()
+
+FUNCIÓN: cv2.destroyAllWindows()
+
+PROPÓSITO:
+Cierra todas las ventanas creadas por OpenCV y libera los recursos asociados.
+
+SINTAXIS:
+    cv2.destroyAllWindows()
+
+PARÁMETROS:
+- Ninguno
+
+COMPORTAMIENTO:
+- Cierra TODAS las ventanas de OpenCV, independientemente de su nombre
+- Libera memoria asociada a las ventanas
+- No afecta a las imágenes en memoria (variables como 'imagen', 'gris', etc.)
+
+ALTERNATIVA PARA UNA SOLA VENTANA:
+    cv2.destroyWindow("nombre_ventana")
+
+BUENA PRÁCTICA:
+Siempre llamar a destroyAllWindows() al final del programa para:
+1. Liberar recursos del sistema operativo
+2. Prevenir ventanas "fantasma" que permanecen abiertas
+3. Permitir que el programa termine limpiamente
+
+
+10. FUNDAMENTOS MATEMÁTICOS DEL PROCESAMIENTO DE IMÁGENES
+================================================================================
+
+10.1 CONVOLUCIÓN: LA OPERACIÓN FUNDAMENTAL
+
+Casi todas las operaciones de procesamiento de imágenes (filtros, detección
+de bordes, etc.) se basan en la CONVOLUCIÓN.
+
+DEFINICIÓN MATEMÁTICA (continua):
+    (f * g)(x) = ∫ f(τ)g(x - τ)dτ
+
+DEFINICIÓN DISCRETA (para imágenes):
+    (I * K)[i, j] = Σ Σ I[i+m, j+n] × K[m, n]
+                    m  n
+
+donde:
+- I: Imagen de entrada
+- K: Kernel (filtro)
+- [i, j]: Posición del píxel en la imagen de salida
+- [m, n]: Posición dentro del kernel
+
+10.1.1 INTERPRETACIÓN INTUITIVA
+
+La convolución "desliza" el kernel sobre la imagen:
+1. Coloca el kernel centrado en cada píxel
+2. Multiplica cada valor del kernel por el píxel correspondiente
+3. Suma todos los productos
+4. El resultado es el nuevo valor del píxel central
+
+10.1.2 EJEMPLO NUMÉRICO COMPLETO
+
+Imagen 5×5:
+    [10  20  30  40  50]
+    [15  25  35  45  55]
+    [20  30  40  50  60]
+    [25  35  45  55  65]
+    [30  40  50  60  70]
+
+Kernel 3×3 (detector de bordes horizontales):
+    [-1  -1  -1]
+    [ 0   0   0]
+    [+1  +1  +1]
+
+Cálculo para el píxel central (posición [2,2], valor 40):
+    Región extraída:
+    [25  35  45]
+    [30  40  50]
+    [35  45  55]
+
+    Multiplicación elemento por elemento:
+    [-1×25  -1×35  -1×45]   [-25  -35  -45]
+    [ 0×30   0×40   0×50] = [  0    0    0]
+    [+1×35  +1×45  +1×55]   [+35  +45  +55]
+
+    Suma total: -25-35-45+0+0+0+35+45+55 = 30
+
+El nuevo valor del píxel [2,2] es 30.
+
+10.2 TRANSFORMADA DE FOURIER Y FRECUENCIAS
+
+10.2.1 CONCEPTO DE FRECUENCIA EN IMÁGENES
+
+Una imagen puede descomponerse en componentes de diferentes frecuencias:
+
+FRECUENCIAS ESPACIALES BAJAS:
+- Representan cambios graduales de intensidad
+- Formas generales, objetos grandes
+- Variaciones suaves de color
+
+FRECUENCIAS ESPACIALES ALTAS:
+- Representan cambios rápidos de intensidad
+- Bordes, texturas, detalles finos
+- Ruido
+
+TRANSFORMADA DE FOURIER 2D:
+    F(u,v) = Σ Σ f(x,y) e^(-j2π(ux/M + vy/N))
+             x y
+
+donde:
+- f(x,y): Imagen en el dominio espacial
+- F(u,v): Imagen en el dominio de frecuencias
+- (u,v): Coordenadas de frecuencia
+
+10.2.2 TEOREMA DE CONVOLUCIÓN
+
+Una propiedad fundamental:
+    Convolución en dominio espacial = Multiplicación en dominio de frecuencias
+    
+    I * K ↔ F(I) × F(K)
+
+Esto significa:
+- Aplicar un filtro espacial (convolución) ≡ Filtrar frecuencias
+- Un filtro gaussiano = Filtro paso-bajo (elimina altas frecuencias)
+- Un detector de bordes = Filtro paso-alto (realza altas frecuencias)
+
+10.3 DERIVADAS Y GRADIENTES
+
+10.3.1 DERIVADA COMO MEDIDA DE CAMBIO
+
+En cálculo continuo, la derivada mide la tasa de cambio:
+    f'(x) = df/dx = lim[h→0] (f(x+h) - f(x))/h
+
+En imágenes discretas, usamos DIFERENCIAS FINITAS:
+    ∂I/∂x ≈ I[x+1, y] - I[x, y]
+
+INTERPRETACIÓN:
+Si I[x+1, y] >> I[x, y], hay un cambio brusco → posible borde
+
+10.3.2 GRADIENTE DE UNA IMAGEN
+
+El gradiente es un vector que apunta en la dirección de mayor cambio:
+    ∇I = [∂I/∂x, ∂I/∂y]
+
+MAGNITUD (qué tan fuerte es el cambio):
+    |∇I| = √((∂I/∂x)² + (∂I/∂y)²)
+
+DIRECCIÓN (hacia dónde cambia):
+    θ = arctan(∂I/∂y / ∂I/∂x)
+
+EJEMPLO EN BORDE VERTICAL:
+    Imagen:
+    [100  100  200  200]
+    [100  100  200  200]
+    
+    Gradiente horizontal (∂I/∂x):
+    [0  100  0]  ← Pico en el borde
+    [0  100  0]
+    
+    Gradiente vertical (∂I/∂y):
+    [0  0  0]  ← Sin cambio vertical
+    [0  0  0]
+
+10.4 OPERADORES DE DERIVADAS
+
+10.4.1 OPERADOR SOBEL
+
+Ya discutido antes, aproxima derivadas con kernels:
+    Gx = [-1  0  +1]        Gy = [-1  -2  -1]
+         [-2  0  +2]             [ 0   0   0]
+         [-1  0  +1]             [+1  +2  +1]
+
+JUSTIFICACIÓN MATEMÁTICA:
+- La fila/columna central tiene mayor peso (×2)
+- Esto incorpora un suavizado gaussiano implícito
+- Reduce sensibilidad al ruido
+
+10.4.2 OPERADOR LAPLACIANO
+
+Segunda derivada, detecta cambios en el cambio:
+    ∇²I = ∂²I/∂x² + ∂²I/∂y²
+
+Kernel laplaciano:
+    [0   1   0]
+    [1  -4   1]
+    [0   1   0]
+
+O versión con diagonales:
+    [1   1   1]
+    [1  -8   1]
+    [1   1   1]
+
+Los bordes aparecen como cruces por cero en la segunda derivada.
+
+10.5 TEORÍA DE LA INFORMACIÓN Y ENTROPÍA
+
+10.5.1 ENTROPÍA DE SHANNON
+
+Mide la cantidad de información en una imagen:
+    H(I) = -Σ p(i) log₂ p(i)
+           i
+
+donde p(i) es la probabilidad del valor de intensidad i.
+
+INTERPRETACIÓN:
+- Alta entropía: Mucha información, imagen compleja con muchos detalles
+- Baja entropía: Poca información, imagen uniforme o simple
+
+10.5.2 APLICACIÓN AL PROCESAMIENTO
+
+El filtro gaussiano REDUCE la entropía:
+- Elimina variaciones aleatorias (ruido)
+- Reduce la complejidad de la imagen
+- Hace que la distribución de intensidades sea más "suave"
+
+10.6 TRANSFORMACIONES MORFOLÓGICAS COMO OPERACIONES DE CONJUNTO
+
+10.6.1 TEORÍA DE CONJUNTOS
+
+Las operaciones morfológicas se fundamentan en teoría de conjuntos:
+- Imagen binaria = Conjunto de puntos blancos
+- Operaciones morfológicas = Operaciones entre conjuntos
+
+EROSIÓN como intersección:
+    A ⊖ B = {z | Bz ⊆ A}
+    "Conjunto de posiciones donde B cabe completamente dentro de A"
+
+DILATACIÓN como unión:
+    A ⊕ B = {z | B̂z ∩ A ≠ ∅}
+    "Conjunto de posiciones donde B toca A"
+
+10.6.2 PROPIEDADES ALGEBRAICAS
+
+DUALIDAD:
+    (A ⊕ B)ᶜ = Aᶜ ⊖ B̂
+    (A ⊖ B)ᶜ = Aᶜ ⊕ B̂
+
+donde ᶜ denota complemento y B̂ es B reflejado.
+
+ASOCIATIVIDAD:
+    (A ⊕ B) ⊕ C = A ⊕ (B ⊕ C)
+
+DISTRIBUTIVIDAD sobre unión:
+    A ⊕ (B ∪ C) = (A ⊕ B) ∪ (A ⊕ C)
+
+
+11. APLICACIONES Y EXTENSIONES DEL CÓDIGO
+================================================================================
+
+11.1 LIMITACIONES DEL CÓDIGO ACTUAL
+
+1. MONEDAS SOBREPUESTAS:
+   Si dos monedas se tocan o superponen, se detectarán como un solo contorno.
+   
+   SOLUCIÓN: Usar transformada de Hough para círculos:
+   circles = cv2.HoughCircles(gris, cv2.HOUGH_GRADIENT, 1, 20,
+                              param1=50, param2=30,
+                              minRadius=10, maxRadius=100)
+
+2. ILUMINACIÓN NO UNIFORME:
+   Sombras o gradientes de luz pueden fragmentar contornos.
+   
+   SOLUCIÓN: Ecualización de histograma adaptativa:
+   clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+   gris_mejorado = clahe.apply(gris)
+
+3. OBJETOS NO CIRCULARES:
+   El código detectará cualquier objeto con contorno cerrado.
+   
+   SOLUCIÓN: Filtrar por circularidad:
+   circularidad = 4*π*area / (perimetro²)
+   # Círculo perfecto: circularidad = 1
+
+11.2 ANÁLISIS ADICIONAL DE CONTORNOS
+
+ÁREA:
+    area = cv2.contourArea(contorno)
+
+PERÍMETRO:
+    perimetro = cv2.arcLength(contorno, True)
+
+CÍRCULO MÍNIMO ENVOLVENTE:
+    (x, y), radio = cv2.minEnclosingCircle(contorno)
+
+RECTÁNGULO MÍNIMO:
+    x, y, w, h = cv2.boundingRect(contorno)
+
+MOMENTOS (para centroides):
+    M = cv2.moments(contorno)
+    cx = int(M['m10']/M['m00'])
+    cy = int(M['m01']/M['m00'])
+
+11.3 CLASIFICACIÓN POR TAMAÑO
+
+Para distinguir monedas de diferentes denominaciones:
+
+    for contorno in contornos:
+        area = cv2.contourArea(contorno)
+        if 1000 < area < 2000:
+            # Moneda pequeña
+        elif 2000 < area < 3500:
+            # Moneda mediana
+        elif area > 3500:
+            # Moneda grande
+
+11.4 PROCESAMIENTO EN TIEMPO REAL
+
+Para aplicar este código a video:
+
+    cap = cv2.VideoCapture(0)  # Cámara
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+            
+        # Aplicar todo el pipeline de procesamiento
+        gris = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        gauss = cv2.GaussianBlur(gris, (5,5), 0)
+        # ... resto del código ...
+        
+        cv2.imshow('Detección', frame)
+        if cv2.waitKey(30) & 0xFF == 27:  # ESC para salir
+            break
+            
+    cap.release()
+    cv2.destroyAllWindows()
+
+
+12. RESUMEN DE FUNCIONES Y PARÁMETROS
+================================================================================
+
+cv2.imread(filename, flags=cv2.IMREAD_COLOR)
+→ numpy.ndarray | None
+
+cv2.cvtColor(src, code)
+→ numpy.ndarray
+
+cv2.GaussianBlur(src, ksize, sigmaX, sigmaY=0)
+→ numpy.ndarray
+  Kernel: tamaño impar, mayor = más desenfoque
+  Sigma: 0 = auto, mayor = más suavizado
+
+cv2.Canny(image, threshold1, threshold2, apertureSize=3)
+→ numpy.ndarray (binaria)
+  threshold1: umbral bajo (típicamente threshold2/2 o threshold2/3)
+  threshold2: umbral alto (ajustar según contraste)
+
+np.ones((filas, columnas), dtype)
+→ numpy.ndarray
+
+cv2.morphologyEx(src, op, kernel, iterations=1)
+→ numpy.ndarray
+  op: MORPH_CLOSE, MORPH_OPEN, MORPH_GRADIENT, etc.
+  kernel: elemento estructurante
+  iterations: repetir operación n veces
+
+cv2.findContours(image, mode, method)
+→ (contours, hierarchy)
+  mode: RETR_EXTERNAL, RETR_LIST, RETR_TREE, RETR_CCOMP
+  method: CHAIN_APPROX_SIMPLE, CHAIN_APPROX_NONE
+
+cv2.drawContours(image, contours, contourIdx, color, thickness)
+→ None (modifica imagen in-place)
+  contourIdx: -1 para todos, ≥0 para uno específico
+  thickness: >0 para línea, -1 para rellenar
+
+cv2.imshow(winname, mat)
+→ None
+
+cv2.waitKey(delay)
+→ int (código de tecla)
+  0 = espera indefinida
+
+cv2.destroyAllWindows()
+→ None
+
+================================================================================
+Informacion sacada de las diversas documentaciones ya comentadas en el repositorio, traducida con ChatGPT 4.1

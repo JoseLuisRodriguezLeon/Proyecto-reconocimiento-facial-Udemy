@@ -6,11 +6,10 @@
 
 ================================================================================
 
-### 1. OpenCV Contrib (cv2)
+### OpenCV Contrib (cv2)
 
 INSTALACIÓN:
 pip install opencv-contrib-python
 
 DOCUMENTACIÓN OFICIAL:
 https://pypi.org/project/opencv-contrib-python/
-
