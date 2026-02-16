@@ -9,6 +9,7 @@ import cv2 as cv
 #   Retorna: objeto VideoCapture
 
 #si la camara esta en uso por otro programa produce un error ([ WARN:0@8.946] global cap_msmf.cpp:477 `anonymous-namespace'::SourceReaderCB::OnReadSample videoio(MSMF): OnReadSample() is called with error status: -1072875772)
+
 video = cv.VideoCapture(0)
 
 # Verificar si la cámara se abrió correctamente
