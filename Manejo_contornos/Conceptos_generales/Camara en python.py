@@ -58,11 +58,11 @@ while True:
     
     # cv.imshow('Gauss', gauss)
     
-    # cv.imshow('Canny', canny) # Detección de bordes
+    cv.imshow('Canny', canny) # Detección de bordes
     
-    # cv.imshow('Cierre', cierre) # Operación morfológica de cierre
+    cv.imshow('Cierre', cierre) # Operación morfológica de cierre
     
-    # cv.imshow('Contornos', resultado) # Imagen con contornos dibujados
+    cv.imshow('Contornos', resultado) # Imagen con contornos dibujados
     
     
 # ========================================================================
@@ -70,6 +70,7 @@ while True:
     
     #   delay: tiempo de espera en ms (1 ms para video fluido)
     #   Retorna: código de la tecla presionada (-1 si no se presionó nada)
+    
     # ord('q'): convierte el carácter 'q' a su código ASCII
     if cv.waitKey(1) == ord('q'):
         print("Saliendo...")
