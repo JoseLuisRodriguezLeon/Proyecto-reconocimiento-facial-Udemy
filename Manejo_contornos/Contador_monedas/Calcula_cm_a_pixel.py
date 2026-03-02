@@ -1,6 +1,6 @@
 # calcula tamano de papel cm a pixel
 
-    # A mayor DPI, más píxeles y mayor calidad de imagen:
+    # A mayor DPI, más píxeles y mayor calidad de imagen -> valores típicos: 72, 96, 300, 600
 def cm_a_pixels():
     ancho_cm  = float(input("Ancho (cm): "))
     alto_cm = float(input("Alto (cm): "))
